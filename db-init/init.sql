@@ -9,6 +9,7 @@ CREATE TABLE public.customer (
                                  "name" varchar NOT NULL, -- Имя пользователя
                                  is_active bool NULL,
                                  balance int4 NOT NULL, -- Балланс на счету
+                                 "password" varchar NOT NULL, -- Хэшированный пароль
                                  CONSTRAINT customer_pk PRIMARY KEY (id)
 );
 
@@ -17,6 +18,7 @@ CREATE TABLE public.customer (
 COMMENT ON COLUMN public.customer.id IS 'Уникальный идентификатор клиента';
 COMMENT ON COLUMN public.customer."name" IS 'Имя пользователя';
 COMMENT ON COLUMN public.customer.balance IS 'Балланс на счету';
+COMMENT ON COLUMN public.customer."password" IS 'Хэшированный пароль';
 
 -- Permissions
 

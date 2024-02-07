@@ -23,8 +23,6 @@ type FilmSaver interface {
 	AddNewFilm(name string, dayPrice int) (string, error)
 }
 
-// TODO добавить проверку что такой фильм уже есть
-
 func New(log *slog.Logger, saver FilmSaver) http.HandlerFunc {
 	return func(writer http.ResponseWriter, request *http.Request) {
 		const op = "handlers/film/create/addFilm/New"
@@ -50,7 +48,12 @@ func New(log *slog.Logger, saver FilmSaver) http.HandlerFunc {
 			render.JSON(writer, request, resp.ValidationError(validateErr))
 			return
 		}
-
+		userID, ok := request.Context().Value("customerId").(string)
+		if ok == false {
+			log.Error("Failed to take customerId")
+			render.JSON(writer, request, resp.Error("Failed to take customerId"))
+		}
+		_ = userID
 		id, err := saver.AddNewFilm(req.Title, req.DayPrice)
 		if err != nil {
 			log.Error("failed to add film", err.Error())
