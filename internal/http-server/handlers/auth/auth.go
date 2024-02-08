@@ -1,4 +1,4 @@
-package customerCreate
+package auth
 
 import (
 	resp "CassetteRental/internal/lib/api/response"
@@ -7,31 +7,34 @@ import (
 	"github.com/go-playground/validator/v10"
 	"log/slog"
 	"net/http"
+	"time"
 )
 
 type Request struct {
-	Name string `json:"name" validate:"required"`
-	//IsActive bool   `json:"isActive,omitempty" validate:"boolean"`
 	Email    string `json:"email" validate:"required"`
 	Password string `json:"password" validate:"required"`
 }
 
 type Response struct {
 	resp.Response
-	Id string `json:"id,omitempty"`
+	Token string `json:"token,omitempty"`
 }
 
-type CustomerSaver interface {
-	AddNewCustomer(name string, isActive bool, email string, hashPassword string) (string, error)
+type CustomerGetter interface {
+	GetCustomerIdByCredentials(email string, password string) (string, error)
 }
 
 type Hasher interface {
 	Hash(password string) (string, error)
 }
 
-func New(log *slog.Logger, saver CustomerSaver, hasher Hasher) http.HandlerFunc {
+type TokenManager interface {
+	NewJWT(userId string, ttl time.Duration) (string, error)
+}
+
+func New(log *slog.Logger, s CustomerGetter, m TokenManager, h Hasher) http.HandlerFunc {
 	return func(writer http.ResponseWriter, request *http.Request) {
-		const op = "handlers/customer/create/customerCreate/New"
+		const op = "handlers/auth/auth/New"
 
 		log = log.With(
 			slog.String("op", op),
@@ -54,23 +57,32 @@ func New(log *slog.Logger, saver CustomerSaver, hasher Hasher) http.HandlerFunc 
 			render.JSON(writer, request, resp.ValidationError(validateErr))
 			return
 		}
-		hashPassword, err := hasher.Hash(req.Password)
-		if err != nil {
-			log.Error("Failed to add customer", err.Error())
-			render.JSON(writer, request, resp.Error("Error with hash"))
-		}
-		id, err := saver.AddNewCustomer(req.Name, true, req.Email, hashPassword)
-		if err != nil {
-			log.Error("failed to add customer", err.Error())
 
-			render.JSON(writer, request, resp.Error("failed to add customer"))
+		passwordHash, err := h.Hash(req.Password)
+		if err != nil {
+			log.Error("error with hash", err.Error())
+			render.JSON(writer, request, resp.Error("failed to 	hash password"))
 			return
 		}
-		log.Info("customer added", slog.String("create customer with id", id))
+		customerId, err := s.GetCustomerIdByCredentials(req.Email, passwordHash)
+		if err != nil {
+			log.Error("failed get credentials", err.Error())
 
+			render.JSON(writer, request, resp.Error("failed to log in "))
+			return
+		}
+
+		ttl := 3 * time.Minute
+		token, err := m.NewJWT(customerId, ttl)
+		if err != nil {
+			log.Error("failed to authorization authorization", err.Error())
+			render.JSON(writer, request, resp.Error(err.Error()))
+			return
+		}
+		log.Info("auth complete", slog.String("user authorized with id", customerId))
 		render.JSON(writer, request, Response{
 			Response: resp.Ok(),
-			Id:       id,
+			Token:    token,
 		})
 	}
 }

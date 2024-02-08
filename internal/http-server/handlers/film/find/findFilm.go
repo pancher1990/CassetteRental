@@ -25,9 +25,6 @@ type FilmFinder interface {
 	GetFilm(ctx context.Context, title string) (context.Context, string, int, error)
 }
 
-// TODO добавить возможность искать еще по dayPrice
-//  TODO golangci-lint в конфе самоката
-
 func New(log *slog.Logger, finder FilmFinder) http.HandlerFunc {
 	return func(writer http.ResponseWriter, request *http.Request) {
 		var op = "handlers/film/find/findFilm/New"

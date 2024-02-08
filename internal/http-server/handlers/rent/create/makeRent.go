@@ -12,10 +12,8 @@ import (
 
 type Request struct {
 	CustomerId string `json:"customerId" validate:"required"`
-	// TODO сделать чтобы OrderId был опциональным для добавления кассет к уже имеющемуся заказу
-	//OrderId    string `json:"orderId"`
-	Title    string `json:"title" validate:"required"`
-	RentDays int    `json:"rentDays" validate:"required"`
+	Title      string `json:"title" validate:"required"`
+	RentDays   int    `json:"rentDays" validate:"required"`
 }
 
 type Response struct {
@@ -35,7 +33,6 @@ type RentMaker interface {
 	SetCustomerBalance(ctx context.Context, id string, balance int) (context.Context, error)
 }
 
-// New TODO дописать нормальные ошибки в сценарии
 func New(log *slog.Logger, rentMaker RentMaker) http.HandlerFunc {
 	return func(writer http.ResponseWriter, request *http.Request) {
 		const op = "handlers/rent/create/makeRent/New"

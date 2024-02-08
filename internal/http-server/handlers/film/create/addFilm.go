@@ -23,8 +23,6 @@ type FilmSaver interface {
 	AddNewFilm(name string, dayPrice int) (string, error)
 }
 
-// TODO добавить проверку что такой фильм уже есть
-
 func New(log *slog.Logger, saver FilmSaver) http.HandlerFunc {
 	return func(writer http.ResponseWriter, request *http.Request) {
 		const op = "handlers/film/create/addFilm/New"

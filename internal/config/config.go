@@ -11,6 +11,7 @@ type Config struct {
 	Env        string `yaml:"env" env-default:"local"`
 	StorageDb  `yaml:"storage_db" env-required:"true"`
 	HTTPServer `yaml:"http_server"`
+	Auth       Auth
 }
 
 type StorageDb struct {
@@ -21,9 +22,15 @@ type StorageDb struct {
 	Password string `yaml:"password"`
 }
 type HTTPServer struct {
-	Address     string        `yaml:"address" env-default:"localhost:8080"`
-	Timeout     time.Duration `yaml:"timeout" env-default:"4s"`
-	IdleTimeout time.Duration `yaml:"idle_timeout" env-default:"60s"`
+	Address       string        `yaml:"address" env-default:"localhost:8080"`
+	Timeout       time.Duration `yaml:"timeout" env-default:"4s"`
+	IdleTimeout   time.Duration `yaml:"idle_timeout" env-default:"60s"`
+	AdminLogin    string        `yaml:"admin-login" env-default:"admin"`
+	AdminPassword string        `yaml:"admin-password" env-required:"true" env:"ADMIN_PASSWORD"`
+}
+type Auth struct {
+	SigningKey string `yaml:"signingKey" env-required:"true" env:"JWT_SIGNING_KEY"`
+	Salt       string `yaml:"salt" env-required:"true" env:"SALT_FOR_HASH"`
 }
 
 func MustLoad() *Config {
@@ -42,6 +49,5 @@ func MustLoad() *Config {
 	if err := cleanenv.ReadConfig(configPath, &cfg); err != nil {
 		log.Fatalf("cannot read config: %s", err)
 	}
-
 	return &cfg
 }

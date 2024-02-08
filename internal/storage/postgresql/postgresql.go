@@ -72,16 +72,33 @@ func (s *Storage) commitIfNeed(ctx context.Context, tr *sql.Tx) error {
 
 	return nil
 }
-func (s *Storage) AddNewCustomer(name string, isActive bool, balance int) (string, error) {
+func (s *Storage) AddNewCustomer(name string, isActive bool, email string, hashPassword string) (string, error) {
 	const op = "storage.postgresql.AddNewCustomer"
 
 	id := random.GenerateGUID()
-	stmt, err := s.db.Prepare("INSERT INTO customer (id, name, is_active, balance) VALUES ($1, $2, $3, $4)")
+	stmt, err := s.db.Prepare("INSERT INTO customer (id, name, is_active, balance, email, password) VALUES ($1, $2, $3, $4, $5, $6)")
 	if err != nil {
 		return "", fmt.Errorf("%s: %w", op, err)
 	}
 
-	_, err = stmt.Exec(id, name, isActive, balance)
+	_, err = stmt.Exec(id, name, isActive, 0, email, hashPassword)
+	if err != nil {
+		return "", fmt.Errorf("%s: %w", op, err)
+	}
+	return id, nil
+}
+
+func (s *Storage) GetCustomerIdByCredentials(email string, password string) (string, error) {
+	const op = "storage.postgresql.GetCustomerIdByCredentials"
+	stmt, err := s.db.Prepare("SELECT id FROM customer WHERE email = $1 and password = $2")
+	if err != nil {
+		return "", fmt.Errorf("%s: %w", op, err)
+	}
+
+	var id string
+	if err = stmt.QueryRow(email, password).Scan(&id); errors.Is(err, sql.ErrNoRows) {
+		return "", fmt.Errorf("%s: %w", op, storage.ErrCustomerInvalidCredential)
+	}
 	if err != nil {
 		return "", fmt.Errorf("%s: %w", op, err)
 	}
@@ -212,7 +229,6 @@ func (s *Storage) GetCassetteStatus(id string) (bool, error) {
 		return false, fmt.Errorf("%s: %w", op, err)
 	}
 	var available bool
-	// TODO исправить работу с ошибками свернуть везде в один if по аналогии с тем как ниже
 	if err = stmt.QueryRow(id).Scan(&available); err != nil {
 		return false, fmt.Errorf("%s: %w", op, err)
 	}
@@ -337,8 +353,7 @@ func (s *Storage) CreateRent(ctx context.Context, customerId string, cassetteId 
 
 	id := random.GenerateGUID()
 	stmt, err := tr.Prepare(
-		"INSERT INTO rent (id, customer_id, cassette_id, start_datetime, end_datetime, return_sign) " +
-			"VALUES ($1, $2, $3, $4, $5, $6)")
+		"INSERT INTO rent (id, customer_id, cassette_id, start_datetime, end_datetime, return_sign) VALUES ($1, $2, $3, $4, $5, $6)")
 	if err != nil {
 		return ctx, "", rollback(tr, fmt.Errorf("%s: %w", op, err))
 	}
