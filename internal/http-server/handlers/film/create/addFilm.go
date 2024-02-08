@@ -48,12 +48,7 @@ func New(log *slog.Logger, saver FilmSaver) http.HandlerFunc {
 			render.JSON(writer, request, resp.ValidationError(validateErr))
 			return
 		}
-		userID, ok := request.Context().Value("customerId").(string)
-		if ok == false {
-			log.Error("Failed to take customerId")
-			render.JSON(writer, request, resp.Error("Failed to take customerId"))
-		}
-		_ = userID
+
 		id, err := saver.AddNewFilm(req.Title, req.DayPrice)
 		if err != nil {
 			log.Error("failed to add film", err.Error())
