@@ -11,9 +11,8 @@ import (
 )
 
 type Request struct {
-	CustomerId string `json:"customerId" validate:"required"`
-	Title      string `json:"title" validate:"required"`
-	RentDays   int    `json:"rentDays" validate:"required"`
+	Title    string `json:"title" validate:"required"`
+	RentDays int    `json:"rentDays" validate:"required"`
 }
 
 type Response struct {
@@ -59,6 +58,12 @@ func New(log *slog.Logger, rentMaker RentMaker) http.HandlerFunc {
 			return
 		}
 
+		customerId, ok := request.Context().Value("customerId").(string)
+		if ok == false {
+			log.Error("Failed to take customerId")
+			render.JSON(writer, request, resp.Error("Failed to take customerId"))
+		}
+
 		ctx := context.Background()
 		ctx = context.WithValue(ctx, "returnTransaction", true)
 
@@ -69,7 +74,7 @@ func New(log *slog.Logger, rentMaker RentMaker) http.HandlerFunc {
 			return
 		}
 
-		ctx, balance, err := rentMaker.GetCustomerBalance(ctx, req.CustomerId)
+		ctx, balance, err := rentMaker.GetCustomerBalance(ctx, customerId)
 		if err != nil {
 			log.Error("failed to create rent ", err.Error())
 			render.JSON(writer, request, resp.Error("failed to create rent"))
@@ -96,7 +101,7 @@ func New(log *slog.Logger, rentMaker RentMaker) http.HandlerFunc {
 			return
 		}
 
-		ctx, orderId, err := rentMaker.CreateOrder(ctx, req.CustomerId)
+		ctx, orderId, err := rentMaker.CreateOrder(ctx, customerId)
 		if err != nil {
 			log.Error("failed to create rent ", err.Error())
 			render.JSON(writer, request, resp.Error("failed to create rent. Failed to create Order"))
@@ -110,7 +115,7 @@ func New(log *slog.Logger, rentMaker RentMaker) http.HandlerFunc {
 			return
 		}
 
-		ctx, rentId, err := rentMaker.CreateRent(ctx, req.CustomerId, cassetteId, req.RentDays)
+		ctx, rentId, err := rentMaker.CreateRent(ctx, customerId, cassetteId, req.RentDays)
 		if err != nil {
 			log.Error("failed to create rent ", err.Error())
 			render.JSON(writer, request, resp.Error("failed to create rent."))
@@ -119,7 +124,7 @@ func New(log *slog.Logger, rentMaker RentMaker) http.HandlerFunc {
 
 		ctx = context.WithValue(ctx, "returnTransaction", nil)
 
-		if _, err := rentMaker.SetCustomerBalance(ctx, req.CustomerId, balance-rentCost); err != nil {
+		if _, err := rentMaker.SetCustomerBalance(ctx, customerId, balance-rentCost); err != nil {
 			log.Error("failed to create rent ", err.Error())
 			render.JSON(writer, request, resp.Error("failed to create rent. Error in change customer balance"))
 			return
