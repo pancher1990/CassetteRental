@@ -2,6 +2,8 @@ package addFilm
 
 import (
 	resp "CassetteRental/internal/lib/api/response"
+	"CassetteRental/internal/storage"
+	"context"
 	"errors"
 	"github.com/go-chi/chi/v5/middleware"
 	"github.com/go-chi/render"
@@ -22,6 +24,7 @@ type Response struct {
 
 type FilmSaver interface {
 	AddNewFilm(name string, dayPrice int) (string, error)
+	GetFilm(ctx context.Context, title string) (context.Context, string, int, error)
 }
 
 func New(log *slog.Logger, saver FilmSaver) http.HandlerFunc {
@@ -50,7 +53,12 @@ func New(log *slog.Logger, saver FilmSaver) http.HandlerFunc {
 			render.JSON(writer, request, resp.ValidationError(validateErr))
 			return
 		}
-
+		ctx := context.Background()
+		if err := checkUnique(ctx, req.Title, saver); err != nil {
+			log.Error("failed to add film need unique title", err.Error())
+			render.JSON(writer, request, resp.Error("failed to add film, title already exist"))
+			return
+		}
 		id, err := saver.AddNewFilm(req.Title, req.DayPrice)
 		if err != nil {
 			log.Error("failed to add film", slog.String("error", err.Error()))
@@ -64,5 +72,14 @@ func New(log *slog.Logger, saver FilmSaver) http.HandlerFunc {
 			Response: resp.Ok(),
 			Id:       id,
 		})
+	}
+}
+
+func checkUnique(ctx context.Context, title string, filmGetter FilmSaver) error {
+	_, _, _, err := filmGetter.GetFilm(ctx, title)
+	if err == storage.ErrFilmNotFound {
+		return nil
+	} else {
+		return errors.New("film title already exist")
 	}
 }
