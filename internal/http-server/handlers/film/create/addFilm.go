@@ -77,7 +77,7 @@ func New(log *slog.Logger, saver FilmSaver) http.HandlerFunc {
 
 func checkUnique(ctx context.Context, title string, filmGetter FilmSaver) error {
 	_, _, _, err := filmGetter.GetFilm(ctx, title)
-	if err == storage.ErrFilmNotFound {
+	if errors.Is(err, storage.ErrFilmNotFound) {
 		return nil
 	} else {
 		return errors.New("film title already exist")
