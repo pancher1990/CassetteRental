@@ -36,19 +36,19 @@ func main() {
 	log.Info(cfg.Env)
 	storage, err := postgresql.New(cfg.StorageDb)
 	if err != nil {
-		log.Error(err.Error())
+		log.Error("failed to init storage", slog.String("error", err.Error()))
 		os.Exit(1)
 	}
 
 	tokenManager, err := token.NewManager(cfg.Auth.SigningKey)
 	if err != nil {
-		log.Error(err.Error())
+		log.Error("failed to init token manager", slog.String("error", err.Error()))
 		os.Exit(1)
 	}
 
 	hasherForAuth, err := hash.NewHash(cfg.Auth.Salt)
 	if err != nil {
-		log.Error(err.Error())
+		log.Error("failed to init hash maker", slog.String("error", err.Error()))
 		os.Exit(1)
 	}
 
@@ -81,7 +81,7 @@ func main() {
 	}
 
 	if err := srv.ListenAndServe(); err != nil {
-		log.Error("failed to start server")
+		log.Error("failed to start server", slog.String("error", err.Error()))
 
 	}
 

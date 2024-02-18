@@ -2,6 +2,7 @@ package auth
 
 import (
 	resp "CassetteRental/internal/lib/api/response"
+	"errors"
 	"github.com/go-chi/chi/v5/middleware"
 	"github.com/go-chi/render"
 	"github.com/go-playground/validator/v10"
@@ -45,28 +46,29 @@ func New(log *slog.Logger, s CustomerGetter, m TokenManager, h Hasher) http.Hand
 		err := render.DecodeJSON(request.Body, &req)
 
 		if err != nil {
-			log.Error("Failed to decode request body ", err.Error())
+			log.Error("Failed to decode request body ", slog.String("error", err.Error()))
 			render.JSON(writer, request, resp.Error("Failed to decode request"))
 			return
 		}
 
 		log.Info("request body decoded ", slog.Any("request", req))
 		if err = validator.New().Struct(req); err != nil {
-			validateErr := err.(validator.ValidationErrors)
-			log.Error("Invalid request", err.Error())
+			var validateErr validator.ValidationErrors
+			errors.As(err, &validateErr)
+			log.Error("Invalid request", slog.String("error", err.Error()))
 			render.JSON(writer, request, resp.ValidationError(validateErr))
 			return
 		}
 
 		passwordHash, err := h.Hash(req.Password)
 		if err != nil {
-			log.Error("error with hash", err.Error())
+			log.Error("error with hash", slog.String("error", err.Error()))
 			render.JSON(writer, request, resp.Error("failed to 	hash password"))
 			return
 		}
 		customerId, err := s.GetCustomerIdByCredentials(req.Email, passwordHash)
 		if err != nil {
-			log.Error("failed get credentials", err.Error())
+			log.Error("failed get credentials", slog.String("error", err.Error()))
 
 			render.JSON(writer, request, resp.Error("failed to log in "))
 			return
@@ -75,7 +77,7 @@ func New(log *slog.Logger, s CustomerGetter, m TokenManager, h Hasher) http.Hand
 		ttl := 3 * time.Minute
 		token, err := m.NewJWT(customerId, ttl)
 		if err != nil {
-			log.Error("failed to authorization authorization", err.Error())
+			log.Error("failed to authorization authorization", slog.String("error", err.Error()))
 			render.JSON(writer, request, resp.Error(err.Error()))
 			return
 		}

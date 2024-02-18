@@ -2,6 +2,7 @@ package addCassette
 
 import (
 	resp "CassetteRental/internal/lib/api/response"
+	"errors"
 	"github.com/go-chi/chi/v5/middleware"
 	"github.com/go-chi/render"
 	"github.com/go-playground/validator/v10"
@@ -37,15 +38,16 @@ func New(log *slog.Logger, saver CassetteSaver) http.HandlerFunc {
 		err := render.DecodeJSON(request.Body, &req)
 
 		if err != nil {
-			log.Error("Failed to decode request body ", err.Error())
+			log.Error("Failed to decode request body ", slog.String("error", err.Error()))
 			render.JSON(writer, request, resp.Error("Failed to decode request"))
 			return
 		}
 
 		log.Info("request body decoded ", slog.Any("request", req))
 		if err = validator.New().Struct(req); err != nil {
-			validateErr := err.(validator.ValidationErrors)
-			log.Error("Invalid request", err.Error())
+			var validateErr validator.ValidationErrors
+			errors.As(err, &validateErr)
+			log.Error("Invalid request", slog.String("error", err.Error()))
 			render.JSON(writer, request, resp.ValidationError(validateErr))
 			return
 		}
@@ -53,7 +55,7 @@ func New(log *slog.Logger, saver CassetteSaver) http.HandlerFunc {
 		for i := 0; i < req.Count; i++ {
 			id, err := saver.AddNewCassette(req.Id)
 			if err != nil {
-				log.Error("failed to add cassette", err.Error())
+				log.Error("failed to add cassette", slog.String("error", err.Error()))
 
 				render.JSON(writer, request, resp.Error("failed to add cassette"))
 				return

@@ -3,6 +3,7 @@ package makeRent
 import (
 	resp "CassetteRental/internal/lib/api/response"
 	"context"
+	"errors"
 	"github.com/go-chi/chi/v5/middleware"
 	"github.com/go-chi/render"
 	"github.com/go-playground/validator/v10"
@@ -45,15 +46,16 @@ func New(log *slog.Logger, rentMaker RentMaker) http.HandlerFunc {
 		err := render.DecodeJSON(request.Body, &req)
 
 		if err != nil {
-			log.Error("Failed to decode request body ", err.Error())
+			log.Error("Failed to decode request body ", slog.String("error", err.Error()))
 			render.JSON(writer, request, resp.Error("Failed to decode request"))
 			return
 		}
 
 		log.Info("request body decoded ", slog.Any("request", req))
 		if err = validator.New().Struct(req); err != nil {
-			validateErr := err.(validator.ValidationErrors)
-			log.Error("Invalid request", err.Error())
+			var validateErr validator.ValidationErrors
+			errors.As(err, &validateErr)
+			log.Error("Invalid request", slog.String("error", err.Error()))
 			render.JSON(writer, request, resp.ValidationError(validateErr))
 			return
 		}
@@ -69,55 +71,55 @@ func New(log *slog.Logger, rentMaker RentMaker) http.HandlerFunc {
 
 		ctx, filmId, dayPrice, err := rentMaker.GetFilm(ctx, req.Title)
 		if err != nil {
-			log.Error("failed to create rent ", err.Error())
+			log.Error("failed to create rent ", slog.String("error", err.Error()))
 			render.JSON(writer, request, resp.Error("failed to create rent"))
 			return
 		}
 
 		ctx, balance, err := rentMaker.GetCustomerBalance(ctx, customerId)
 		if err != nil {
-			log.Error("failed to create rent ", err.Error())
+			log.Error("failed to create rent ", slog.String("error", err.Error()))
 			render.JSON(writer, request, resp.Error("failed to create rent"))
 			return
 		}
 
 		rentCost := req.RentDays * dayPrice
 		if rentCost > balance {
-			log.Error("failed to create rent insufficient funds on the balance", err.Error())
+			log.Error("failed to create rent insufficient funds on the balance", slog.String("error", err.Error()))
 			render.JSON(writer, request, resp.Error("failed to create rent insufficient funds on the balance"))
 			return
 		}
 
 		ctx, cassetteId, err := rentMaker.FindAvailableCassette(ctx, filmId)
 		if err != nil {
-			log.Error("failed to create rent ", err.Error())
+			log.Error("failed to create rent ", slog.String("error", err.Error()))
 			render.JSON(writer, request, resp.Error("failed to create rent"))
 			return
 		}
 		ctx, err = rentMaker.SetCassetteStatus(ctx, cassetteId, false)
 		if err != nil {
-			log.Error("failed to create rent ", err.Error())
+			log.Error("failed to create rent ", slog.String("error", err.Error()))
 			render.JSON(writer, request, resp.Error("failed to create rent"))
 			return
 		}
 
 		ctx, orderId, err := rentMaker.CreateOrder(ctx, customerId)
 		if err != nil {
-			log.Error("failed to create rent ", err.Error())
+			log.Error("failed to create rent ", slog.String("error", err.Error()))
 			render.JSON(writer, request, resp.Error("failed to create rent. Failed to create Order"))
 			return
 		}
 
 		ctx, err = rentMaker.CreateCassetteInOrder(ctx, cassetteId, orderId, rentCost)
 		if err != nil {
-			log.Error("failed to create rent ", err.Error())
+			log.Error("failed to create rent ", slog.String("error", err.Error()))
 			render.JSON(writer, request, resp.Error("failed to create rent. Failed to create Order"))
 			return
 		}
 
 		ctx, rentId, err := rentMaker.CreateRent(ctx, customerId, cassetteId, req.RentDays)
 		if err != nil {
-			log.Error("failed to create rent ", err.Error())
+			log.Error("failed to create rent ", slog.String("error", err.Error()))
 			render.JSON(writer, request, resp.Error("failed to create rent."))
 			return
 		}
@@ -125,7 +127,7 @@ func New(log *slog.Logger, rentMaker RentMaker) http.HandlerFunc {
 		ctx = context.WithValue(ctx, "returnTransaction", nil)
 
 		if _, err := rentMaker.SetCustomerBalance(ctx, customerId, balance-rentCost); err != nil {
-			log.Error("failed to create rent ", err.Error())
+			log.Error("failed to create rent ", slog.String("error", err.Error()))
 			render.JSON(writer, request, resp.Error("failed to create rent. Error in change customer balance"))
 			return
 		}

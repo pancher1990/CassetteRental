@@ -3,6 +3,7 @@ package findFilm
 import (
 	resp "CassetteRental/internal/lib/api/response"
 	"context"
+	"errors"
 	"github.com/go-chi/chi/v5/middleware"
 	"github.com/go-chi/render"
 	"github.com/go-playground/validator/v10"
@@ -36,7 +37,7 @@ func New(log *slog.Logger, finder FilmFinder) http.HandlerFunc {
 		var req Request
 
 		if err := render.DecodeJSON(request.Body, &req); err != nil {
-			log.Error("Failed to decode request body ", err.Error())
+			log.Error("Failed to decode request body ", slog.String("error", err.Error()))
 			render.JSON(writer, request, resp.Error("Failed to decode request"))
 
 			return
@@ -44,8 +45,9 @@ func New(log *slog.Logger, finder FilmFinder) http.HandlerFunc {
 
 		log.Info("request body decoded ", slog.Any("request", req))
 		if err := validator.New().Struct(req); err != nil {
-			validateErr := err.(validator.ValidationErrors)
-			log.Error("Invalid request", err.Error())
+			var validateErr validator.ValidationErrors
+			errors.As(err, &validateErr)
+			log.Error("Invalid request", slog.String("error", err.Error()))
 			render.JSON(writer, request, resp.ValidationError(validateErr))
 			return
 		}
@@ -53,7 +55,7 @@ func New(log *slog.Logger, finder FilmFinder) http.HandlerFunc {
 		ctx := context.Background()
 		_, id, dayCost, err := finder.GetFilm(ctx, req.Title)
 		if err != nil {
-			log.Error("failed to get film", err.Error())
+			log.Error("failed to get film", slog.String("error", err.Error()))
 
 			render.JSON(writer, request, resp.Error("failed to get film"))
 			return
