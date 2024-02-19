@@ -22,6 +22,7 @@ type Response struct {
 	RentId  string `json:"rentId,omitempty"`
 }
 
+//go:generate go run github.com/vektra/mockery/v2@v2.28.2 --name=RentMaker
 type RentMaker interface {
 	GetFilm(ctx context.Context, title string) (context.Context, string, int, error)
 	GetCustomerBalance(ctx context.Context, id string) (context.Context, int, error)
@@ -134,7 +135,7 @@ func New(log *slog.Logger, rentMaker RentMaker) http.HandlerFunc {
 
 		log.Info("rent created",
 			slog.String("create rent with id", rentId),
-			slog.String("create rent with id", orderId))
+			slog.String("create order with id", orderId))
 
 		render.JSON(writer, request, Response{
 			Response: resp.Ok(),

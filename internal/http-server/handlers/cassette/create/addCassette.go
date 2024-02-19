@@ -21,6 +21,7 @@ type Response struct {
 	Ids []string `json:"ids,omitempty"`
 }
 
+//go:generate go run github.com/vektra/mockery/v2@v2.28.2 --name=CassetteSaver
 type CassetteSaver interface {
 	AddNewCassette(filmId string) (string, error)
 }
