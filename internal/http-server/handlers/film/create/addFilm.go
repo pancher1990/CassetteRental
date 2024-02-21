@@ -41,7 +41,8 @@ func New(log *slog.Logger, saver FilmSaver) http.HandlerFunc {
 
 		if err != nil {
 			log.Error("Failed to decode request body ", slog.String("error", err.Error()))
-			render.JSON(writer, request, resp.Error("Failed to decode request"))
+			resp.BadRequest(writer, "Failed to decode request body")
+
 			return
 		}
 
@@ -50,7 +51,8 @@ func New(log *slog.Logger, saver FilmSaver) http.HandlerFunc {
 			var validateErr validator.ValidationErrors
 			errors.As(err, &validateErr)
 			log.Error("Invalid request", slog.String("error", err.Error()))
-			render.JSON(writer, request, resp.ValidationError(validateErr))
+			resp.BadRequest(writer, "Invalid request")
+
 			return
 		}
 		ctx := context.Background()

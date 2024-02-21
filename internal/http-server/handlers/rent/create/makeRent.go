@@ -48,7 +48,8 @@ func New(log *slog.Logger, rentMaker RentMaker) http.HandlerFunc {
 
 		if err != nil {
 			log.Error("Failed to decode request body ", slog.String("error", err.Error()))
-			render.JSON(writer, request, resp.Error("Failed to decode request"))
+			resp.BadRequest(writer, "Failed to decode request body")
+
 			return
 		}
 
@@ -57,7 +58,8 @@ func New(log *slog.Logger, rentMaker RentMaker) http.HandlerFunc {
 			var validateErr validator.ValidationErrors
 			errors.As(err, &validateErr)
 			log.Error("Invalid request", slog.String("error", err.Error()))
-			render.JSON(writer, request, resp.ValidationError(validateErr))
+			resp.BadRequest(writer, "Invalid request")
+
 			return
 		}
 
@@ -65,6 +67,7 @@ func New(log *slog.Logger, rentMaker RentMaker) http.HandlerFunc {
 		if ok == false {
 			log.Error("Failed to take customerId")
 			render.JSON(writer, request, resp.Error("Failed to take customerId"))
+			return
 		}
 
 		ctx := context.Background()
