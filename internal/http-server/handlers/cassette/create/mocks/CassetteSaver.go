@@ -33,6 +33,37 @@ func (_m *CassetteSaver) AddNewCassette(filmId string) (string, error) {
 	return r0, r1
 }
 
+// GetFilmById provides a mock function with given fields: id
+func (_m *CassetteSaver) GetFilmById(id string) (string, int, error) {
+	ret := _m.Called(id)
+
+	var r0 string
+	var r1 int
+	var r2 error
+	if rf, ok := ret.Get(0).(func(string) (string, int, error)); ok {
+		return rf(id)
+	}
+	if rf, ok := ret.Get(0).(func(string) string); ok {
+		r0 = rf(id)
+	} else {
+		r0 = ret.Get(0).(string)
+	}
+
+	if rf, ok := ret.Get(1).(func(string) int); ok {
+		r1 = rf(id)
+	} else {
+		r1 = ret.Get(1).(int)
+	}
+
+	if rf, ok := ret.Get(2).(func(string) error); ok {
+		r2 = rf(id)
+	} else {
+		r2 = ret.Error(2)
+	}
+
+	return r0, r1, r2
+}
+
 type mockConstructorTestingTNewCassetteSaver interface {
 	mock.TestingT
 	Cleanup(func())

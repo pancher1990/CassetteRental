@@ -2,8 +2,10 @@ package makeRent
 
 import (
 	resp "CassetteRental/internal/lib/api/response"
+	"CassetteRental/internal/storage"
 	"context"
 	"errors"
+	"fmt"
 	"github.com/go-chi/chi/v5/middleware"
 	"github.com/go-chi/render"
 	"github.com/go-playground/validator/v10"
@@ -48,7 +50,7 @@ func New(log *slog.Logger, rentMaker RentMaker) http.HandlerFunc {
 
 		if err != nil {
 			log.Error("Failed to decode request body ", slog.String("error", err.Error()))
-			render.JSON(writer, request, resp.Error("Failed to decode request"))
+			resp.BadRequest(writer, "Failed to decode request body")
 			return
 		}
 
@@ -57,71 +59,89 @@ func New(log *slog.Logger, rentMaker RentMaker) http.HandlerFunc {
 			var validateErr validator.ValidationErrors
 			errors.As(err, &validateErr)
 			log.Error("Invalid request", slog.String("error", err.Error()))
-			render.JSON(writer, request, resp.ValidationError(validateErr))
+			resp.BadRequest(writer, "Invalid request")
 			return
 		}
 
 		customerId, ok := request.Context().Value("customerId").(string)
 		if ok == false {
 			log.Error("Failed to take customerId")
-			render.JSON(writer, request, resp.Error("Failed to take customerId"))
+			resp.InternalServerError(writer, fmt.Sprintf("Failed to take customerId %s", err.Error()))
+			return
 		}
 
 		ctx := context.Background()
 		ctx = context.WithValue(ctx, "returnTransaction", true)
 
 		ctx, filmId, dayPrice, err := rentMaker.GetFilm(ctx, req.Title)
+		if errors.Is(err, storage.ErrFilmNotFound) {
+			log.Error("failed to create rent ", slog.String("error", err.Error()))
+			resp.StatusNotFound(writer, fmt.Sprintf("failed to create rent %s", err.Error()))
+			return
+		}
 		if err != nil {
 			log.Error("failed to create rent ", slog.String("error", err.Error()))
-			render.JSON(writer, request, resp.Error("failed to create rent"))
+			resp.InternalServerError(writer, fmt.Sprintf("failed to create rent %s", err.Error()))
 			return
 		}
 
 		ctx, balance, err := rentMaker.GetCustomerBalance(ctx, customerId)
+		if errors.Is(err, storage.ErrCustomerNotFound) {
+			log.Error("failed to create rent ", slog.String("error", err.Error()))
+			resp.StatusNotFound(writer, fmt.Sprintf("failed to create rent %s", err.Error()))
+			return
+		}
 		if err != nil {
 			log.Error("failed to create rent ", slog.String("error", err.Error()))
-			render.JSON(writer, request, resp.Error("failed to create rent"))
+			resp.InternalServerError(writer, fmt.Sprintf("failed to create rent %s", err.Error()))
 			return
 		}
 
 		rentCost := req.RentDays * dayPrice
 		if rentCost > balance {
+			err := errors.New("insufficient funds on the balance")
 			log.Error("failed to create rent insufficient funds on the balance", slog.String("error", err.Error()))
-			render.JSON(writer, request, resp.Error("failed to create rent insufficient funds on the balance"))
+			resp.StatusConflict(writer, fmt.Sprintf("failed to create rent %s", err.Error()))
 			return
 		}
 
 		ctx, cassetteId, err := rentMaker.FindAvailableCassette(ctx, filmId)
-		if err != nil {
+		if errors.Is(err, storage.ErrCassetteNotFound) {
 			log.Error("failed to create rent ", slog.String("error", err.Error()))
-			render.JSON(writer, request, resp.Error("failed to create rent"))
+			resp.StatusNotFound(writer, fmt.Sprintf("failed to create rent %s", err.Error()))
 			return
 		}
+		if err != nil {
+			log.Error("failed to create rent ", slog.String("error", err.Error()))
+			resp.InternalServerError(writer, fmt.Sprintf("failed to create rent %s", err.Error()))
+			return
+		}
+
 		ctx, err = rentMaker.SetCassetteStatus(ctx, cassetteId, false)
 		if err != nil {
 			log.Error("failed to create rent ", slog.String("error", err.Error()))
-			render.JSON(writer, request, resp.Error("failed to create rent"))
+			resp.InternalServerError(writer, fmt.Sprintf("failed to create rent %s", err.Error()))
 			return
 		}
 
 		ctx, orderId, err := rentMaker.CreateOrder(ctx, customerId)
 		if err != nil {
 			log.Error("failed to create rent ", slog.String("error", err.Error()))
-			render.JSON(writer, request, resp.Error("failed to create rent. Failed to create Order"))
+			resp.InternalServerError(writer, fmt.Sprintf("failed to create rent %s", err.Error()))
 			return
 		}
 
 		ctx, err = rentMaker.CreateCassetteInOrder(ctx, cassetteId, orderId, rentCost)
 		if err != nil {
 			log.Error("failed to create rent ", slog.String("error", err.Error()))
-			render.JSON(writer, request, resp.Error("failed to create rent. Failed to create Order"))
+			resp.InternalServerError(writer, fmt.Sprintf("failed to create rent %s", err.Error()))
 			return
 		}
 
 		ctx, rentId, err := rentMaker.CreateRent(ctx, customerId, cassetteId, req.RentDays)
 		if err != nil {
 			log.Error("failed to create rent ", slog.String("error", err.Error()))
-			render.JSON(writer, request, resp.Error("failed to create rent."))
+			resp.InternalServerError(writer, fmt.Sprintf("failed to create rent %s", err.Error()))
 			return
 		}
 
@@ -129,7 +149,7 @@ func New(log *slog.Logger, rentMaker RentMaker) http.HandlerFunc {
 
 		if _, err := rentMaker.SetCustomerBalance(ctx, customerId, balance-rentCost); err != nil {
 			log.Error("failed to create rent ", slog.String("error", err.Error()))
-			render.JSON(writer, request, resp.Error("failed to create rent. Error in change customer balance"))
+			resp.InternalServerError(writer, fmt.Sprintf("failed to create rent %s", err.Error()))
 			return
 		}
 

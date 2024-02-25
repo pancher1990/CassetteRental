@@ -2,6 +2,7 @@ package setBalance
 
 import (
 	resp "CassetteRental/internal/lib/api/response"
+	"CassetteRental/internal/storage"
 	"context"
 	"errors"
 	"github.com/go-chi/chi/v5"
@@ -38,7 +39,7 @@ func New(log *slog.Logger, setter CustomerBalanceSetter) http.HandlerFunc {
 
 		if err != nil {
 			log.Error("Failed to decode request body ", slog.String("error", err.Error()))
-			render.JSON(writer, request, resp.Error("Failed to decode request"))
+			resp.BadRequest(writer, "Failed to decode request body")
 			return
 		}
 
@@ -47,25 +48,28 @@ func New(log *slog.Logger, setter CustomerBalanceSetter) http.HandlerFunc {
 			var validateErr validator.ValidationErrors
 			errors.As(err, &validateErr)
 			log.Error("Invalid request", slog.String("error", err.Error()))
-			render.JSON(writer, request, resp.ValidationError(validateErr))
+			resp.BadRequest(writer, "Invalid request")
+
 			return
 		}
 
-		id := chi.URLParam(request, "id")
+		id := chi.URLParam(request, "customerId")
 		if id == "" {
 			log.Info("id is empty")
-
-			render.JSON(writer, request, resp.Error("invalid request"))
-
+			resp.BadRequest(writer, "Invalid url id is empty")
 			return
 		}
 
 		ctx := context.Background()
 		_, err = setter.SetCustomerBalance(ctx, id, req.Balance)
+		if errors.Is(err, storage.ErrCustomerNotFound) {
+			log.Error("failed to set balance", slog.String("error", err.Error()))
+			resp.StatusNotFound(writer, "customer not found")
+			return
+		}
 		if err != nil {
 			log.Error("failed to set balance", slog.String("error", err.Error()))
-
-			render.JSON(writer, request, resp.Error("failed to set balance"))
+			resp.InternalServerError(writer, "failed to set balance")
 			return
 		}
 		log.Info("balance is changed", slog.String("set balance customer with id", id))

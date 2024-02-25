@@ -2,6 +2,7 @@ package findFilm
 
 import (
 	resp "CassetteRental/internal/lib/api/response"
+	"CassetteRental/internal/storage"
 	"context"
 	"errors"
 	"github.com/go-chi/chi/v5/middleware"
@@ -38,8 +39,7 @@ func New(log *slog.Logger, finder FilmFinder) http.HandlerFunc {
 
 		if err := render.DecodeJSON(request.Body, &req); err != nil {
 			log.Error("Failed to decode request body ", slog.String("error", err.Error()))
-			render.JSON(writer, request, resp.Error("Failed to decode request"))
-
+			resp.BadRequest(writer, "Failed to decode request body")
 			return
 		}
 
@@ -48,16 +48,21 @@ func New(log *slog.Logger, finder FilmFinder) http.HandlerFunc {
 			var validateErr validator.ValidationErrors
 			errors.As(err, &validateErr)
 			log.Error("Invalid request", slog.String("error", err.Error()))
-			render.JSON(writer, request, resp.ValidationError(validateErr))
+			resp.BadRequest(writer, "Invalid request")
 			return
 		}
 
 		ctx := context.Background()
 		_, id, dayCost, err := finder.GetFilm(ctx, req.Title)
+		if errors.Is(err, storage.ErrFilmNotFound) {
+			log.Error("failed to get film", slog.String("error", err.Error()))
+			resp.StatusNotFound(writer, err.Error())
+			return
+		}
+
 		if err != nil {
 			log.Error("failed to get film", slog.String("error", err.Error()))
-
-			render.JSON(writer, request, resp.Error("failed to get film"))
+			resp.InternalServerError(writer, err.Error())
 			return
 		}
 		log.Info("film was taken", slog.String("get film with id", id))

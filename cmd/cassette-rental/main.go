@@ -64,8 +64,6 @@ func main() {
 	router.Route("/admin", func(r chi.Router) {
 		r.Use(middleware.BasicAuth("cassette-rental",
 			map[string]string{cfg.HTTPServer.AdminLogin: cfg.HTTPServer.AdminPassword}))
-		r.Get("/film/find", findFilm.New(log, storage))
-
 		r.Post("/cassette/add", addCassette.New(log, storage))
 		r.Post("/film/add", addFilm.New(log, storage))
 		r.Patch("/cassette/available/{cassetteId}", setStatus.New(log, storage))

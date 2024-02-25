@@ -2,6 +2,7 @@ package setStatus
 
 import (
 	resp "CassetteRental/internal/lib/api/response"
+	"CassetteRental/internal/storage"
 	"context"
 	"errors"
 	"github.com/go-chi/chi/v5"
@@ -22,6 +23,7 @@ type Response struct {
 
 type CassetteStatusSetter interface {
 	SetCassetteStatus(ctx context.Context, id string, available bool) (context.Context, error)
+	GetCassetteStatus(id string) (bool, error)
 }
 
 func New(log *slog.Logger, setter CassetteStatusSetter) http.HandlerFunc {
@@ -37,7 +39,7 @@ func New(log *slog.Logger, setter CassetteStatusSetter) http.HandlerFunc {
 		err := render.DecodeJSON(request.Body, &req)
 		if err != nil {
 			log.Error("Failed to decode request body ", slog.String("error", err.Error()))
-			render.JSON(writer, request, resp.Error("Failed to decode request"))
+			resp.BadRequest(writer, "Failed to decode request body")
 			return
 		}
 		log.Info("request body decoded ", slog.Any("request", req))
@@ -46,23 +48,33 @@ func New(log *slog.Logger, setter CassetteStatusSetter) http.HandlerFunc {
 			var validateErr validator.ValidationErrors
 			errors.As(err, &validateErr)
 			log.Error("Invalid request", slog.String("error", err.Error()))
-			render.JSON(writer, request, resp.ValidationError(validateErr))
+			resp.BadRequest(writer, "Invalid request")
 			return
 		}
 
-		id := chi.URLParam(request, "id")
+		id := chi.URLParam(request, "cassetteId")
 		if id == "" {
 			log.Info("id is empty")
-
-			render.JSON(writer, request, resp.Error("invalid request"))
-
+			resp.BadRequest(writer, "Invalid request")
 			return
 		}
 		ctx := context.Background()
+
+		_, err = setter.GetCassetteStatus(id)
+		if errors.Is(err, storage.ErrCassetteNotFound) {
+			log.Error("failed to set available status to cassette", slog.String("error", err.Error()))
+			resp.StatusNotFound(writer, err.Error())
+			return
+		}
+		if err != nil {
+			log.Error("failed to set available status to cassette", slog.String("error", err.Error()))
+			resp.InternalServerError(writer, err.Error())
+		}
+
 		_, err = setter.SetCassetteStatus(ctx, id, *req.Available)
 		if err != nil {
 			log.Error("failed to set available status to cassette", slog.String("error", err.Error()))
-			render.JSON(writer, request, resp.Error("failed to set available status to cassette"))
+			resp.InternalServerError(writer, err.Error())
 			return
 		}
 

@@ -5,6 +5,7 @@ import (
 	"CassetteRental/internal/storage"
 	"context"
 	"errors"
+	"fmt"
 	"github.com/go-chi/chi/v5/middleware"
 	"github.com/go-chi/render"
 	"github.com/go-playground/validator/v10"
@@ -41,7 +42,7 @@ func New(log *slog.Logger, saver FilmSaver) http.HandlerFunc {
 
 		if err != nil {
 			log.Error("Failed to decode request body ", slog.String("error", err.Error()))
-			render.JSON(writer, request, resp.Error("Failed to decode request"))
+			resp.BadRequest(writer, "Failed to decode request body")
 			return
 		}
 
@@ -50,20 +51,28 @@ func New(log *slog.Logger, saver FilmSaver) http.HandlerFunc {
 			var validateErr validator.ValidationErrors
 			errors.As(err, &validateErr)
 			log.Error("Invalid request", slog.String("error", err.Error()))
-			render.JSON(writer, request, resp.ValidationError(validateErr))
+			resp.BadRequest(writer, "Invalid request")
 			return
 		}
+
 		ctx := context.Background()
-		if err := checkUnique(ctx, req.Title, saver); err != nil {
-			log.Error("failed to add film need unique title", err.Error())
-			render.JSON(writer, request, resp.Error("failed to add film, title already exist"))
+		_, _, _, err = saver.GetFilm(ctx, req.Title)
+		if err == nil {
+			log.Error("failed add film", slog.String("error", errors.New("film already exists").Error()))
+			resp.StatusConflict(writer, fmt.Sprintf("film %s already exists", req.Title))
 			return
 		}
+		if (err != nil) && (!errors.Is(err, storage.ErrFilmNotFound)) {
+			log.Error("failed to add film", slog.String("error", err.Error()))
+			resp.InternalServerError(writer, fmt.Sprintf("failed to add film, %s", err.Error()))
+			return
+
+		}
+
 		id, err := saver.AddNewFilm(req.Title, req.DayPrice)
 		if err != nil {
 			log.Error("failed to add film", slog.String("error", err.Error()))
-
-			render.JSON(writer, request, resp.Error("failed to add film"))
+			resp.InternalServerError(writer, fmt.Sprintf("failed to add film, %s", err.Error()))
 			return
 		}
 		log.Info("film added", slog.String("create film with id", id))
@@ -72,14 +81,5 @@ func New(log *slog.Logger, saver FilmSaver) http.HandlerFunc {
 			Response: resp.Ok(),
 			Id:       id,
 		})
-	}
-}
-
-func checkUnique(ctx context.Context, title string, filmGetter FilmSaver) error {
-	_, _, _, err := filmGetter.GetFilm(ctx, title)
-	if errors.Is(err, storage.ErrFilmNotFound) {
-		return nil
-	} else {
-		return errors.New("film title already exist")
 	}
 }
