@@ -40,6 +40,8 @@ func TestNew(t *testing.T) {
 			cassetteSaver := mocks.NewCassetteSaver(t)
 			cassetteSaver.On("AddNewCassette", tt.id).
 				Return("3bb3d807-3790-49c1-adf8-6b7eb3b1cf88", nil).Once()
+			cassetteSaver.On("GetFilmById", tt.id).
+				Return("какой-то id", 123, nil).Once()
 			log := slog.New(slog.NewTextHandler(
 				os.Stdout,
 				&slog.HandlerOptions{Level: slog.LevelDebug},

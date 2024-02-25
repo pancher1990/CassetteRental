@@ -45,6 +45,19 @@ func BadRequest(w http.ResponseWriter, message string) {
 	sendError(w, http.StatusBadRequest, message)
 }
 
+func InternalServerError(w http.ResponseWriter, message string) {
+	sendError(w, http.StatusInternalServerError, message)
+}
+
+func StatusNotFound(w http.ResponseWriter, message string) {
+	sendError(w, http.StatusNotFound, message)
+
+}
+
+func StatusConflict(w http.ResponseWriter, message string) {
+	sendError(w, http.StatusConflict, message)
+
+}
 func sendError(w http.ResponseWriter, statusCode int, message string) {
 	w.WriteHeader(statusCode)
 	json.NewEncoder(w).Encode(Error(message))

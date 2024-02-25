@@ -88,6 +88,23 @@ func (s *Storage) AddNewCustomer(name string, isActive bool, email string, hashP
 	return id, nil
 }
 
+func (s *Storage) GetCustomerIdByEmail(email string) (string, error) {
+	const op = "storage.postgresql.GetCustomerIdByCredentials"
+	stmt, err := s.db.Prepare("SELECT id FROM customer WHERE email = $1")
+	if err != nil {
+		return "", fmt.Errorf("%s: %w", op, err)
+	}
+
+	var id string
+	if err = stmt.QueryRow(email).Scan(&id); errors.Is(err, sql.ErrNoRows) {
+		return "", fmt.Errorf("%s: %w", op, storage.ErrCustomerNotFound)
+	}
+	if err != nil {
+		return "", fmt.Errorf("%s: %w", op, err)
+	}
+	return id, nil
+}
+
 func (s *Storage) GetCustomerIdByCredentials(email string, password string) (string, error) {
 	const op = "storage.postgresql.GetCustomerIdByCredentials"
 	stmt, err := s.db.Prepare("SELECT id FROM customer WHERE email = $1 and password = $2")
@@ -114,6 +131,9 @@ func (s *Storage) SetCustomerBalance(ctx context.Context, id string, balance int
 	}
 
 	stmt, err := tr.Prepare("UPDATE customer SET balance = $1 WHERE id = $2")
+	if errors.Is(err, sql.ErrNoRows) {
+		return ctx, rollback(tr, storage.ErrCustomerNotFound)
+	}
 	if err != nil {
 		return ctx, rollback(tr, fmt.Errorf("%s: %w", op, err))
 	}
@@ -175,6 +195,25 @@ func (s *Storage) AddNewFilm(name string, dayPrice int) (string, error) {
 	return id, nil
 }
 
+func (s *Storage) GetFilmById(id string) (string, int, error) {
+	const op = "storage.postgresql.GetFilmById"
+	stmt, err := s.db.Prepare("SELECT title, day_price FROM film WHERE  id = $1")
+	if err != nil {
+		return "", 0, err
+	}
+
+	var title string
+	var dayCost int
+	if err = stmt.QueryRow(id).Scan(&title, &dayCost); errors.Is(err, sql.ErrNoRows) {
+		return "", 0, storage.ErrFilmNotFound
+	}
+	if err != nil {
+		return "", 0, fmt.Errorf("%s: %w", op, err)
+	}
+
+	return title, dayCost, nil
+}
+
 func (s *Storage) GetFilm(ctx context.Context, title string) (context.Context, string, int, error) {
 	const op = "storage.postgresql.GetFilm"
 
@@ -229,7 +268,10 @@ func (s *Storage) GetCassetteStatus(id string) (bool, error) {
 		return false, fmt.Errorf("%s: %w", op, err)
 	}
 	var available bool
-	if err = stmt.QueryRow(id).Scan(&available); err != nil {
+	if err = stmt.QueryRow(id).Scan(&available); errors.Is(err, sql.ErrNoRows) {
+		return false, storage.ErrCassetteNotFound
+	}
+	if err != nil {
 		return false, fmt.Errorf("%s: %w", op, err)
 	}
 	return available, nil
@@ -250,7 +292,7 @@ func (s *Storage) FindAvailableCassette(ctx context.Context, filmId string) (con
 
 	var id string
 	if err = stmt.QueryRow(filmId).Scan(&id); errors.Is(err, sql.ErrNoRows) {
-		return ctx, "", storage.ErrCassetteNotFound
+		return ctx, "", rollback(tr, storage.ErrCassetteNotFound)
 	}
 	if err != nil {
 		return ctx, "", fmt.Errorf("%s: %w", op, err)

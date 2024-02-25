@@ -2,6 +2,7 @@ package addCassette
 
 import (
 	resp "CassetteRental/internal/lib/api/response"
+	"CassetteRental/internal/storage"
 	"errors"
 	"github.com/go-chi/chi/v5/middleware"
 	"github.com/go-chi/render"
@@ -24,6 +25,7 @@ type Response struct {
 //go:generate go run github.com/vektra/mockery/v2@v2.28.2 --name=CassetteSaver
 type CassetteSaver interface {
 	AddNewCassette(filmId string) (string, error)
+	GetFilmById(id string) (string, int, error)
 }
 
 func New(log *slog.Logger, saver CassetteSaver) http.HandlerFunc {
@@ -52,13 +54,24 @@ func New(log *slog.Logger, saver CassetteSaver) http.HandlerFunc {
 			resp.BadRequest(writer, "Invalid request")
 			return
 		}
+		_, _, err = saver.GetFilmById(req.Id)
+		if errors.Is(err, storage.ErrFilmNotFound) {
+			log.Error("failed to add cassette", slog.String("error", err.Error()))
+			resp.StatusNotFound(writer, err.Error())
+			return
+		}
+		if err != nil {
+			log.Error("failed to add cassette", slog.String("error", err.Error()))
+			resp.InternalServerError(writer, err.Error())
+			return
+		}
+
 		var ids []string
 		for i := 0; i < req.Count; i++ {
 			id, err := saver.AddNewCassette(req.Id)
 			if err != nil {
 				log.Error("failed to add cassette", slog.String("error", err.Error()))
-
-				render.JSON(writer, request, resp.Error("failed to add cassette"))
+				resp.InternalServerError(writer, err.Error())
 				return
 			}
 			ids = append(ids, id)
