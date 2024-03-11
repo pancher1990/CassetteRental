@@ -4,6 +4,8 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	orders_cassettes "github.com/pancher1990/cassette-rental/internal/repositories/orders-cassettes"
+	"github.com/pancher1990/cassette-rental/internal/usecases/orders"
 	"log/slog"
 	"net/http"
 	"os"
@@ -13,8 +15,11 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/kelseyhightower/envconfig"
 	"github.com/pancher1990/cassette-rental/internal/controllers/api"
+	cassettes "github.com/pancher1990/cassette-rental/internal/repositories/cassettes"
 	customersrepo "github.com/pancher1990/cassette-rental/internal/repositories/customers"
 	filmsrepo "github.com/pancher1990/cassette-rental/internal/repositories/films"
+	orsersrepo "github.com/pancher1990/cassette-rental/internal/repositories/orders"
+
 	"github.com/pancher1990/cassette-rental/internal/transaction"
 	"github.com/pancher1990/cassette-rental/internal/usecases/customers"
 	"github.com/pancher1990/cassette-rental/internal/usecases/films"
@@ -67,6 +72,9 @@ func main() {
 
 	customerRepo := customersrepo.New()
 	filmRepo := filmsrepo.New()
+	orderRepo := orsersrepo.New()
+	cassettesRepo := cassettes.New()
+	ordersCassettesRepo := orders_cassettes.New()
 
 	pool, err := newPgxPool(cfg.Database.dsn())
 	if err != nil {
@@ -80,6 +88,13 @@ func main() {
 		api.WithCustomerBalanceUpdater(customers.UpdateBalance(customerRepo, transaction.Tx(pool, logger))),
 		api.WithFilmCreater(films.Create(filmRepo, transaction.Tx(pool, logger))),
 		api.WithFilmFinder(films.Find(filmRepo, transaction.Tx(pool, logger))),
+		api.WithOrderCreater(orders.Create(orders.Repositories{
+			Film:          filmRepo,
+			Customer:      customerRepo,
+			Cassette:      cassettesRepo,
+			Order:         orderRepo,
+			OrderCassette: ordersCassettesRepo,
+		}, transaction.Tx(pool, logger))),
 	)
 	if err != nil {
 		logger.Error("failed to create controller", slog.String("err", err.Error()))

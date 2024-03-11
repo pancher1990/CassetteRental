@@ -26,6 +26,7 @@ func New() *Repository {
 // 	crypt('qwerty', password) = password
 
 var ErrEmailAlreadyExists = errors.New("email already exists")
+var ErrCustomerNotFound = errors.New("customer not found")
 
 func (r *Repository) Create(ctx context.Context, tx transaction.Querier, c entities.Customer) (*entities.Customer, error) {
 	sql, args, err := squirrel.
@@ -76,7 +77,7 @@ func (r *Repository) UpdateBalance(ctx context.Context, tx transaction.Querier, 
 	sql, args, err := squirrel.
 		Update("customer as c").
 		Set("balance", balance).
-		Where("c.customer_id = ?", customerID).
+		Where("c.id = ?", customerID).
 		Suffix("returning c.balance").
 		PlaceholderFormat(squirrel.Dollar).
 		ToSql()
@@ -103,7 +104,7 @@ func (r *Repository) Get(ctx context.Context, tx transaction.Querier, customerID
 			"c.email",
 		).
 		From("customer c").
-		Where("c.customer_id = ?", customerID).
+		Where("c.id = ?", customerID).
 		PlaceholderFormat(squirrel.Dollar).
 		ToSql()
 	if err != nil {
@@ -120,7 +121,7 @@ func (r *Repository) Get(ctx context.Context, tx transaction.Querier, customerID
 		&customer.Balance,
 		&customer.Email,
 	); err != nil && errors.Is(err, pgx.ErrNoRows) {
-		return nil, nil
+		return nil, ErrCustomerNotFound
 	} else if err != nil {
 		return nil, fmt.Errorf("failed to get customer: %w", err)
 	}

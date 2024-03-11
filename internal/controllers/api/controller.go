@@ -3,10 +3,8 @@ package api
 import (
 	"context"
 	"errors"
-	"net/http"
-	"strings"
-
 	"github.com/pancher1990/cassette-rental/internal/entities"
+	"net/http"
 )
 
 type (
@@ -14,6 +12,7 @@ type (
 	CustomerBalanceUpdater func(ctx context.Context, customerID int, balance int) (resultBalance int, err error)
 	FilmCreater            func(context.Context, entities.Film) (*entities.Film, error)
 	FilmFinder             func(context.Context, string) ([]entities.Film, error)
+	OrderCreater           func(context.Context, int, int, int) (*entities.Order, error)
 )
 
 type Controller struct {
@@ -21,6 +20,7 @@ type Controller struct {
 	CustomerBalanceUpdater
 	FilmCreater
 	FilmFinder
+	OrderCreater
 }
 
 type option interface {
@@ -36,6 +36,12 @@ func (o optionFunc) apply(c *Controller) {
 func WithCustomerCreater(customerCreater CustomerCreater) option {
 	return optionFunc(func(c *Controller) {
 		c.CustomerCreater = customerCreater
+	})
+}
+
+func WithOrderCreater(orderCreater OrderCreater) option {
+	return optionFunc(func(c *Controller) {
+		c.OrderCreater = orderCreater
 	})
 }
 
@@ -84,16 +90,12 @@ func New(opts ...option) (*Controller, error) {
 }
 
 func (c *Controller) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	switch strings.Trim(r.URL.Path, "/") {
-	case "customers":
-		c.customers(w, r)
-	case "customer/balance":
-		c.customerBalance(w, r)
-	case "films":
-		c.films(w, r)
-	default:
-		http.NotFound(w, r)
-	}
+	mux := http.NewServeMux()
+	mux.HandleFunc("/customers", c.customers)
+	mux.HandleFunc("/customer/balance", c.customerBalance)
+	mux.HandleFunc("/films", c.films)
+	mux.HandleFunc("/order", c.orders)
+	mux.ServeHTTP(w, r)
 }
 
 func (c *Controller) customers(w http.ResponseWriter, r *http.Request) {
@@ -120,6 +122,15 @@ func (c *Controller) films(w http.ResponseWriter, r *http.Request) {
 		c.createFilm(w, r)
 	case http.MethodGet:
 		c.getFilms(w, r)
+	default:
+		http.NotFound(w, r)
+	}
+}
+
+func (c *Controller) orders(w http.ResponseWriter, r *http.Request) {
+	switch r.Method {
+	case http.MethodPost:
+		c.createOrder(w, r)
 	default:
 		http.NotFound(w, r)
 	}
