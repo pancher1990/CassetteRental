@@ -13,6 +13,7 @@ type (
 	FilmCreater            func(context.Context, entities.Film) (*entities.Film, error)
 	FilmFinder             func(context.Context, string) ([]entities.Film, error)
 	OrderCreater           func(context.Context, int, int, int) (*entities.Order, error)
+	CassetteCreater        func(context.Context, string, int) ([]entities.Cassette, error)
 )
 
 type Controller struct {
@@ -21,6 +22,7 @@ type Controller struct {
 	FilmCreater
 	FilmFinder
 	OrderCreater
+	CassetteCreater
 }
 
 type option interface {
@@ -63,6 +65,12 @@ func WithFilmFinder(filmFinder FilmFinder) option {
 	})
 }
 
+func WithCassetteCreater(cassetteCreater CassetteCreater) option {
+	return optionFunc(func(c *Controller) {
+		c.CassetteCreater = cassetteCreater
+	})
+}
+
 func New(opts ...option) (*Controller, error) {
 	var c Controller
 
@@ -86,6 +94,14 @@ func New(opts ...option) (*Controller, error) {
 		return nil, errors.New("film finder required")
 	}
 
+	if c.OrderCreater == nil {
+		return nil, errors.New("order creater required")
+	}
+
+	if c.CassetteCreater == nil {
+		return nil, errors.New("cassette creater required")
+	}
+
 	return &c, nil
 }
 
@@ -94,6 +110,7 @@ func (c *Controller) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	mux.HandleFunc("/customers", c.customers)
 	mux.HandleFunc("/customer/balance", c.customerBalance)
 	mux.HandleFunc("/films", c.films)
+	mux.HandleFunc("/cassettes", c.cassettes)
 	mux.HandleFunc("/order", c.orders)
 	mux.ServeHTTP(w, r)
 }
@@ -122,6 +139,15 @@ func (c *Controller) films(w http.ResponseWriter, r *http.Request) {
 		c.createFilm(w, r)
 	case http.MethodGet:
 		c.getFilms(w, r)
+	default:
+		http.NotFound(w, r)
+	}
+}
+
+func (c *Controller) cassettes(w http.ResponseWriter, r *http.Request) {
+	switch r.Method {
+	case http.MethodPost:
+		c.createCassette(w, r)
 	default:
 		http.NotFound(w, r)
 	}

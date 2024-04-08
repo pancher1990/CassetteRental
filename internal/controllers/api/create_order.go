@@ -4,9 +4,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/pancher1990/cassette-rental/internal/repositories/cassettes"
-	"github.com/pancher1990/cassette-rental/internal/repositories/customers"
-	"github.com/pancher1990/cassette-rental/internal/repositories/films"
 	"github.com/pancher1990/cassette-rental/internal/usecases/orders"
 	"net/http"
 	"time"
@@ -57,7 +54,7 @@ func (c *Controller) createOrder(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		var status int
 		switch err {
-		case films.ErrFilmNotFound, customers.ErrCustomerNotFound, cassettes.ErrCassetteNotFound:
+		case orders.ErrFilmNotFound, orders.ErrCustomerNotFound, orders.ErrCassetteNotFound:
 			status = http.StatusNotFound
 		case orders.RentPossibilityErrStatusConflict:
 			status = http.StatusConflict

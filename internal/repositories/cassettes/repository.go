@@ -20,37 +20,70 @@ func New() *Repository {
 
 var ErrCassetteNotFound = errors.New("cassette not found")
 
-func (r *Repository) Create(ctx context.Context, tx transaction.Querier, c entities.Cassette) (*entities.Cassette, error) {
-	sql, args, err := squirrel.
-		Insert("cassette as c").
-		Columns("film_id", "is_available").
-		Values(
-			c.FilmId,
-		).
-		Suffix(`returning
-					c.id,
-					c.film_id,
-					c.is_available,
-		`).
+func (r *Repository) Create(ctx context.Context, tx transaction.Querier, c []entities.Cassette) ([]entities.Cassette, error) {
+
+	queryBuilder := squirrel.
+		Insert("cassette").
+		Columns("film_id", "is_available")
+	for _, cassette := range c {
+		queryBuilder = queryBuilder.Values(cassette.FilmId, cassette.IsAvailable)
+	}
+	sql, args, err := queryBuilder.
+		Suffix(`returning id, film_id, is_available`).
 		PlaceholderFormat(squirrel.Dollar).
 		ToSql()
 	if err != nil {
 		return nil, fmt.Errorf("failed to compile sql: %w", err)
 	}
 
-	var created entities.Cassette
-	if err := tx.QueryRow(ctx, sql, args...).
-		Scan(
-			&created.ID,
-			&created.FilmId,
-			&created.IsAvailable,
-		); err != nil {
-
-		return nil, fmt.Errorf("failed to insert cassette: %w", err)
+	rows, err := tx.Query(ctx, sql, args...)
+	if err != nil {
+		return nil, fmt.Errorf("failed to insert cassettes: %w", err)
 	}
 
-	return &created, nil
+	var created []entities.Cassette
+	for rows.Next() {
+		var c entities.Cassette
+		if err := rows.Scan(&c.ID, &c.FilmId, &c.IsAvailable); err != nil {
+			return nil, fmt.Errorf("failed to scan cassette: %w", err)
+		}
+		created = append(created, c)
+	}
+	return created, nil
 }
+
+//
+//func (r *Repository) Create(ctx context.Context, tx transaction.Querier, c entities.Cassette) (*entities.Cassette, error) {
+//	sql, args, err := squirrel.
+//		Insert("cassette as c").
+//		Columns("film_id", "is_available").
+//		Values(
+//			c.FilmId,
+//		).
+//		Suffix(`returning
+//					c.id,
+//					c.film_id,
+//					c.is_available,
+//		`).
+//		PlaceholderFormat(squirrel.Dollar).
+//		ToSql()
+//	if err != nil {
+//		return nil, fmt.Errorf("failed to compile sql: %w", err)
+//	}
+//
+//	var created entities.Cassette
+//	if err := tx.QueryRow(ctx, sql, args...).
+//		Scan(
+//			&created.ID,
+//			&created.FilmId,
+//			&created.IsAvailable,
+//		); err != nil {
+//
+//		return nil, fmt.Errorf("failed to insert cassette: %w", err)
+//	}
+//
+//	return &created, nil
+//}
 
 func (r *Repository) UpdateStatus(ctx context.Context, tx transaction.Querier, ID int, isAvailable bool) error {
 	sql, args, err := squirrel.

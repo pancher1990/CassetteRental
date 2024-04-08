@@ -2,6 +2,7 @@ package films
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
 	"github.com/jackc/pgx/v5"
@@ -9,6 +10,8 @@ import (
 	"github.com/pancher1990/cassette-rental/internal/entities"
 	"github.com/pancher1990/cassette-rental/internal/transaction"
 )
+
+var ErrFilmNotFound = errors.New("film not found")
 
 func Find(repository FilmRepository, tx transaction.TxFunc) func(context.Context, string) ([]entities.Film, error) {
 	return func(ctx context.Context, title string) ([]entities.Film, error) {

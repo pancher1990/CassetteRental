@@ -23,7 +23,6 @@ func New() *Repository {
 var (
 	ErrFilmAlreadyExists = errors.New("film already exists")
 	ErrFilmNotFound      = errors.New("film not found")
-	// Добавьте другие ошибки по мере необходимости
 )
 
 func (r *Repository) Create(ctx context.Context, tx transaction.Querier, f entities.Film) (*entities.Film, error) {
@@ -72,7 +71,7 @@ func (r *Repository) Find(ctx context.Context, tx transaction.Querier, title str
 			"f.title",
 		).
 		From("film f").
-		Where("lower(f.title) like '%?%'", strings.ToLower(title)).
+		Where("lower(f.title) LIKE ?", "%"+strings.ToLower(title)+"%").
 		PlaceholderFormat(squirrel.Dollar).
 		ToSql()
 	if err != nil {

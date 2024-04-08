@@ -4,7 +4,8 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	orders_cassettes "github.com/pancher1990/cassette-rental/internal/repositories/orders-cassettes"
+	orderscassettesrepo "github.com/pancher1990/cassette-rental/internal/repositories/orders-cassettes"
+	"github.com/pancher1990/cassette-rental/internal/usecases/cassettes"
 	"github.com/pancher1990/cassette-rental/internal/usecases/orders"
 	"log/slog"
 	"net/http"
@@ -15,7 +16,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/kelseyhightower/envconfig"
 	"github.com/pancher1990/cassette-rental/internal/controllers/api"
-	cassettes "github.com/pancher1990/cassette-rental/internal/repositories/cassettes"
+	cassettesrepo "github.com/pancher1990/cassette-rental/internal/repositories/cassettes"
 	customersrepo "github.com/pancher1990/cassette-rental/internal/repositories/customers"
 	filmsrepo "github.com/pancher1990/cassette-rental/internal/repositories/films"
 	orsersrepo "github.com/pancher1990/cassette-rental/internal/repositories/orders"
@@ -73,8 +74,8 @@ func main() {
 	customerRepo := customersrepo.New()
 	filmRepo := filmsrepo.New()
 	orderRepo := orsersrepo.New()
-	cassettesRepo := cassettes.New()
-	ordersCassettesRepo := orders_cassettes.New()
+	cassettesRepo := cassettesrepo.New()
+	ordersCassettesRepo := orderscassettesrepo.New()
 
 	pool, err := newPgxPool(cfg.Database.dsn())
 	if err != nil {
@@ -94,6 +95,10 @@ func main() {
 			Cassette:      cassettesRepo,
 			Order:         orderRepo,
 			OrderCassette: ordersCassettesRepo,
+		}, transaction.Tx(pool, logger))),
+		api.WithCassetteCreater(cassettes.Create(cassettes.Repositories{
+			Film:     filmRepo,
+			Cassette: cassettesRepo,
 		}, transaction.Tx(pool, logger))),
 	)
 	if err != nil {

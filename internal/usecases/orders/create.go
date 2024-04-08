@@ -46,6 +46,9 @@ type Repositories struct {
 
 var (
 	RentPossibilityErrStatusConflict = errors.New("insufficient funds")
+	ErrFilmNotFound                  = errors.New("film not found")
+	ErrCustomerNotFound              = errors.New("customer not found")
+	ErrCassetteNotFound              = errors.New("cassette not found")
 )
 
 func Create(r Repositories, tx transaction.TxFunc) func(context.Context, int, int, int) (*entities.Order, error) {
@@ -62,14 +65,14 @@ func Create(r Repositories, tx transaction.TxFunc) func(context.Context, int, in
 			func(tx pgx.Tx) (err error) {
 				film, err = r.Film.GetById(ctx, tx, filmId)
 				if errors.Is(err, films.ErrFilmNotFound) {
-					return films.ErrFilmNotFound
+					return ErrFilmNotFound
 				} else if err != nil {
 					return fmt.Errorf("can not find film: %w", err)
 				}
 
 				customer, err = r.Customer.Get(ctx, tx, customerId)
 				if errors.Is(err, customers.ErrCustomerNotFound) {
-					return customers.ErrCustomerNotFound
+					return ErrCustomerNotFound
 				} else if err != nil {
 					return fmt.Errorf("can not get user: %w", err)
 				}
@@ -80,7 +83,7 @@ func Create(r Repositories, tx transaction.TxFunc) func(context.Context, int, in
 
 				cassette, err = r.Cassette.GetAvailableByFilmId(ctx, tx, filmId)
 				if errors.Is(err, cassettes.ErrCassetteNotFound) {
-					return cassettes.ErrCassetteNotFound
+					return ErrCassetteNotFound
 				} else if err != nil {
 					return fmt.Errorf("can not get active cassette: %w", err)
 				}
