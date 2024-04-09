@@ -12,7 +12,7 @@ type (
 	CustomerBalanceUpdater func(ctx context.Context, customerID int, balance int) (resultBalance int, err error)
 	FilmCreater            func(context.Context, entities.Film) (*entities.Film, error)
 	FilmFinder             func(context.Context, string) ([]entities.Film, error)
-	OrderCreater           func(context.Context, int, int, int) (*entities.Order, error)
+	OrderCreater           func(context.Context, int, int, int) (*entities.Order, *entities.OrderCassette, error)
 	CassetteCreater        func(context.Context, string, int) ([]entities.Cassette, error)
 )
 

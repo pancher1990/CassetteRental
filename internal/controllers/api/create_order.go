@@ -30,7 +30,8 @@ func (n *newOrder) Validate() error {
 }
 
 type order struct {
-	ID             int       `json:"id"`
+	OrderId        int       `json:"orderId"`
+	CassetteID     int       `json:"CassetteID"`
 	CreatedAt      time.Time `json:"createdAt"`
 	ReturnDeadline time.Time `json:"returnDeadline"`
 	IsActive       bool      `json:"isActive"`
@@ -50,7 +51,7 @@ func (c *Controller) createOrder(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	created, err := c.OrderCreater(r.Context(), n.FilmId, n.RentDays, n.CustomerId)
+	createdOrder, createdOrderCassette, err := c.OrderCreater(r.Context(), n.FilmId, n.RentDays, n.CustomerId)
 	if err != nil {
 		var status int
 		switch err {
@@ -69,10 +70,11 @@ func (c *Controller) createOrder(w http.ResponseWriter, r *http.Request) {
 	w.Header().Add("Content-Type", "application/json")
 
 	if err := json.NewEncoder(w).Encode(order{
-		ID:             created.ID,
-		CreatedAt:      created.CreatedAt,
-		ReturnDeadline: created.ReturnDeadline,
-		IsActive:       created.IsActive,
+		OrderId:        createdOrderCassette.CassetteId,
+		CassetteID:     createdOrder.ID,
+		CreatedAt:      createdOrder.CreatedAt,
+		ReturnDeadline: createdOrder.ReturnDeadline,
+		IsActive:       createdOrder.IsActive,
 	}); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 

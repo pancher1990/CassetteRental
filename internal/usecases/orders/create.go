@@ -51,13 +51,14 @@ var (
 	ErrCassetteNotFound              = errors.New("cassette not found")
 )
 
-func Create(r Repositories, tx transaction.TxFunc) func(context.Context, int, int, int) (*entities.Order, error) {
-	return func(ctx context.Context, filmId int, rentDays int, customerId int) (*entities.Order, error) {
+func Create(r Repositories, tx transaction.TxFunc) func(context.Context, int, int, int) (*entities.Order, *entities.OrderCassette, error) {
+	return func(ctx context.Context, filmId int, rentDays int, customerId int) (*entities.Order, *entities.OrderCassette, error) {
 		var (
-			film     *entities.Film
-			customer *entities.Customer
-			cassette *entities.Cassette
-			newOrder *entities.Order
+			film             *entities.Film
+			customer         *entities.Customer
+			cassette         *entities.Cassette
+			newOrder         *entities.Order
+			newCassetteOrder *entities.OrderCassette
 		)
 
 		err := tx(
@@ -108,7 +109,7 @@ func Create(r Repositories, tx transaction.TxFunc) func(context.Context, int, in
 					CassetteId: cassette.ID,
 				}
 
-				if _, err = r.OrderCassette.Create(ctx, tx, orderCassette); err != nil {
+				if newCassetteOrder, err = r.OrderCassette.Create(ctx, tx, orderCassette); err != nil {
 					return fmt.Errorf("can not create order-cassette relation: %w", err)
 				}
 
@@ -123,7 +124,7 @@ func Create(r Repositories, tx transaction.TxFunc) func(context.Context, int, in
 			},
 		)
 
-		return newOrder, err
+		return newOrder, newCassetteOrder, err
 	}
 }
 func checkRentPossibility(f *entities.Film, c *entities.Customer, rentDays int) error {
