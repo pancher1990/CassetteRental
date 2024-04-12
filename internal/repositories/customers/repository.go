@@ -128,3 +128,40 @@ func (r *Repository) Get(ctx context.Context, tx transaction.Querier, customerID
 
 	return &customer, nil
 }
+
+func (r *Repository) GetByEmailAndPassword(ctx context.Context, tx transaction.Querier, email, password string) (*entities.Customer, error) {
+	sql, args, err := squirrel.
+		Select(
+			"c.id",
+			"c.created_at",
+			"c.name",
+			"c.is_active",
+			"c.balance",
+			"c.email",
+		).
+		From("customer c").
+		Where("c.email = ?", email).
+		Where("crypt(?, c.password) = c.password", password).
+		PlaceholderFormat(squirrel.Dollar).
+		ToSql()
+	if err != nil {
+		return nil, fmt.Errorf("failed to compile sql: %w", err)
+	}
+
+	var customer entities.Customer
+
+	if err := tx.QueryRow(ctx, sql, args...).Scan(
+		&customer.ID,
+		&customer.CreatedAt,
+		&customer.Name,
+		&customer.IsActive,
+		&customer.Balance,
+		&customer.Email,
+	); err != nil && errors.Is(err, pgx.ErrNoRows) {
+		return nil, ErrCustomerNotFound
+	} else if err != nil {
+		return nil, fmt.Errorf("failed to get customer: %w", err)
+	}
+
+	return &customer, nil
+}

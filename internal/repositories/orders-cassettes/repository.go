@@ -21,8 +21,8 @@ func (r *Repository) Create(ctx context.Context, tx transaction.Querier, o entit
 		Insert("order_cassette as o").
 		Columns("order_id", "cassette_id").
 		Values(
-			o.OrderId,
-			o.CassetteId,
+			o.OrderID,
+			o.CassetteID,
 		).
 		Suffix(`returning
 					o.id,
@@ -39,8 +39,8 @@ func (r *Repository) Create(ctx context.Context, tx transaction.Querier, o entit
 	if err := tx.QueryRow(ctx, sql, args...).
 		Scan(
 			&created.ID,
-			&created.OrderId,
-			&created.CassetteId,
+			&created.OrderID,
+			&created.CassetteID,
 		); err != nil {
 
 		return nil, fmt.Errorf("failed to create order cassete relation: %w", err)

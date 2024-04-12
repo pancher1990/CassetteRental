@@ -4,18 +4,19 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"time"
+
 	"github.com/jackc/pgx/v5"
 	"github.com/pancher1990/cassette-rental/internal/entities"
 	"github.com/pancher1990/cassette-rental/internal/repositories/cassettes"
 	"github.com/pancher1990/cassette-rental/internal/repositories/customers"
 	"github.com/pancher1990/cassette-rental/internal/repositories/films"
 	"github.com/pancher1990/cassette-rental/internal/transaction"
-	"time"
 )
 
 type FilmRepository interface {
 	Create(context.Context, transaction.Querier, entities.Film) (*entities.Film, error)
-	GetById(ctx context.Context, tx transaction.Querier, id int) (*entities.Film, error)
+	GetByID(ctx context.Context, tx transaction.Querier, id int) (*entities.Film, error)
 }
 
 type CustomerRepository interface {
@@ -24,7 +25,7 @@ type CustomerRepository interface {
 }
 
 type CassetteRepository interface {
-	GetAvailableByFilmId(ctx context.Context, tx transaction.Querier, filmId int) (*entities.Cassette, error)
+	GetAvailableByFilmID(ctx context.Context, tx transaction.Querier, filmID int) (*entities.Cassette, error)
 	UpdateStatus(ctx context.Context, tx transaction.Querier, ID int, isAvailable bool) error
 }
 
@@ -52,7 +53,7 @@ var (
 )
 
 func Create(r Repositories, tx transaction.TxFunc) func(context.Context, int, int, int) (*entities.Order, *entities.OrderCassette, error) {
-	return func(ctx context.Context, filmId int, rentDays int, customerId int) (*entities.Order, *entities.OrderCassette, error) {
+	return func(ctx context.Context, filmID int, rentDays int, customerID int) (*entities.Order, *entities.OrderCassette, error) {
 		var (
 			film             *entities.Film
 			customer         *entities.Customer
@@ -64,14 +65,14 @@ func Create(r Repositories, tx transaction.TxFunc) func(context.Context, int, in
 		err := tx(
 			ctx,
 			func(tx pgx.Tx) (err error) {
-				film, err = r.Film.GetById(ctx, tx, filmId)
-				if errors.Is(err, films.ErrFilmNotFound) {
+				film, err = r.Film.GetByID(ctx, tx, filmID)
+				if errors.Is(err, films.ErrNotFound) {
 					return ErrFilmNotFound
 				} else if err != nil {
 					return fmt.Errorf("can not find film: %w", err)
 				}
 
-				customer, err = r.Customer.Get(ctx, tx, customerId)
+				customer, err = r.Customer.Get(ctx, tx, customerID)
 				if errors.Is(err, customers.ErrCustomerNotFound) {
 					return ErrCustomerNotFound
 				} else if err != nil {
@@ -82,7 +83,7 @@ func Create(r Repositories, tx transaction.TxFunc) func(context.Context, int, in
 					return RentPossibilityErrStatusConflict
 				}
 
-				cassette, err = r.Cassette.GetAvailableByFilmId(ctx, tx, filmId)
+				cassette, err = r.Cassette.GetAvailableByFilmID(ctx, tx, filmID)
 				if errors.Is(err, cassettes.ErrCassetteNotFound) {
 					return ErrCassetteNotFound
 				} else if err != nil {
@@ -94,7 +95,7 @@ func Create(r Repositories, tx transaction.TxFunc) func(context.Context, int, in
 				}
 
 				order := entities.Order{
-					CustomerId:     customerId,
+					CustomerID:     customerID,
 					ReturnDeadline: time.Now().AddDate(0, 0, 3),
 					IsActive:       true,
 				}
@@ -105,8 +106,8 @@ func Create(r Repositories, tx transaction.TxFunc) func(context.Context, int, in
 				}
 
 				orderCassette := entities.OrderCassette{
-					OrderId:    newOrder.ID,
-					CassetteId: cassette.ID,
+					OrderID:    newOrder.ID,
+					CassetteID: cassette.ID,
 				}
 
 				if newCassetteOrder, err = r.OrderCassette.Create(ctx, tx, orderCassette); err != nil {
@@ -115,7 +116,7 @@ func Create(r Repositories, tx transaction.TxFunc) func(context.Context, int, in
 
 				newBalance := customer.Balance - rentDays*film.Price
 
-				_, err = r.Customer.UpdateBalance(ctx, tx, customerId, newBalance)
+				_, err = r.Customer.UpdateBalance(ctx, tx, customerID, newBalance)
 				if err != nil {
 					return fmt.Errorf("failed to update customer balance: %w", err)
 				}

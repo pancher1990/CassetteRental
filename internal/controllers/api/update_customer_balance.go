@@ -1,9 +1,7 @@
 package api
 
 import (
-	"encoding/json"
 	"errors"
-	"fmt"
 	"net/http"
 )
 
@@ -32,30 +30,18 @@ func (n *updateCustomerBalance) Validate() error {
 
 func (c *Controller) updateCustomerBalance(w http.ResponseWriter, r *http.Request) {
 	var n updateCustomerBalance
-	if err := json.NewDecoder(r.Body).Decode(&n); err != nil {
+	if err := c.decodeAndValidateBody(r, &n); err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 
 		return
 	}
 
-	if err := n.Validate(); err != nil {
-		http.Error(w, fmt.Sprintf("invalid customer balance: %s", err.Error()), http.StatusBadRequest)
-
-		return
-	}
-
-	newBalance, err := c.CustomerBalanceUpdater(r.Context(), n.CustomerID, *n.Balance)
+	newBalance, err := c.UpdateCustomerBalance(r.Context(), n.CustomerID, *n.Balance)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 
 		return
 	}
 
-	w.Header().Add("Content-Type", "application/json")
-
-	if err := json.NewEncoder(w).Encode(newBalance); err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-
-		return
-	}
+	c.writeOK(w, newBalance)
 }

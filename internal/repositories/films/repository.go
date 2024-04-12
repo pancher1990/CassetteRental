@@ -4,8 +4,9 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"github.com/jackc/pgx/v5"
 	"strings"
+
+	"github.com/jackc/pgx/v5"
 
 	"github.com/Masterminds/squirrel"
 	"github.com/jackc/pgx/v5/pgconn"
@@ -22,7 +23,7 @@ func New() *Repository {
 
 var (
 	ErrFilmAlreadyExists = errors.New("film already exists")
-	ErrFilmNotFound      = errors.New("film not found")
+	ErrNotFound          = errors.New("not found")
 )
 
 func (r *Repository) Create(ctx context.Context, tx transaction.Querier, f entities.Film) (*entities.Film, error) {
@@ -85,8 +86,10 @@ func (r *Repository) Find(ctx context.Context, tx transaction.Querier, title str
 	defer rows.Close()
 
 	var films []entities.Film
+
 	for rows.Next() {
 		var film entities.Film
+
 		if err := rows.Scan(
 			&film.ID,
 			&film.CreatedAt,
@@ -103,10 +106,14 @@ func (r *Repository) Find(ctx context.Context, tx transaction.Querier, title str
 		return nil, fmt.Errorf("failed to exec query: %w", err)
 	}
 
+	if len(films) == 0 {
+		return nil, fmt.Errorf("%q %w", title, ErrNotFound)
+	}
+
 	return films, nil
 }
 
-func (r *Repository) GetById(ctx context.Context, tx transaction.Querier, id int) (*entities.Film, error) {
+func (r *Repository) GetByID(ctx context.Context, tx transaction.Querier, id int) (*entities.Film, error) {
 	sql, args, err := squirrel.
 		Select(
 			"f.id",
@@ -129,7 +136,7 @@ func (r *Repository) GetById(ctx context.Context, tx transaction.Querier, id int
 		&film.Price,
 		&film.Title,
 	); err != nil && errors.Is(err, pgx.ErrNoRows) {
-		return nil, ErrFilmNotFound
+		return nil, ErrNotFound
 	} else if err != nil {
 		return nil, fmt.Errorf("failed to get film: %w", err)
 	}

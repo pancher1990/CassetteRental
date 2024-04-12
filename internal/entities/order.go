@@ -4,7 +4,7 @@ import "time"
 
 type Order struct {
 	ID             int
-	CustomerId     int
+	CustomerID     int
 	CreatedAt      time.Time
 	ReturnDeadline time.Time
 	IsActive       bool

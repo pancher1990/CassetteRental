@@ -1,9 +1,7 @@
 package api
 
 import (
-	"encoding/json"
 	"errors"
-	"fmt"
 	"net/http"
 	"strings"
 	"time"
@@ -46,19 +44,13 @@ type customer struct {
 
 func (c *Controller) createCustomer(w http.ResponseWriter, r *http.Request) {
 	var n newCustomer
-	if err := json.NewDecoder(r.Body).Decode(&n); err != nil {
+	if err := c.decodeAndValidateBody(r, &n); err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 
 		return
 	}
 
-	if err := n.Validate(); err != nil {
-		http.Error(w, fmt.Sprintf("invalid customer: %s", err.Error()), http.StatusBadRequest)
-
-		return
-	}
-
-	created, err := c.CustomerCreater(r.Context(), entities.Customer{
+	created, err := c.CreateCustomer(r.Context(), entities.Customer{
 		Name:     n.Name,
 		Password: n.Password,
 		Email:    n.Email,
@@ -69,18 +61,12 @@ func (c *Controller) createCustomer(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	w.Header().Add("Content-Type", "application/json")
-
-	if err := json.NewEncoder(w).Encode(customer{
+	c.writeOK(w, customer{
 		ID:        created.ID,
 		CreatedAt: created.CreatedAt,
 		Name:      created.Name,
 		Email:     created.Email,
 		IsActive:  created.IsActive,
 		Balance:   created.Balance,
-	}); err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-
-		return
-	}
+	})
 }

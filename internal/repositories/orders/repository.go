@@ -21,7 +21,7 @@ func (r *Repository) Create(ctx context.Context, tx transaction.Querier, o entit
 		Insert("\"order\" as o").
 		Columns("customer_id", "return_deadline").
 		Values(
-			o.CustomerId,
+			o.CustomerID,
 			o.ReturnDeadline,
 		).
 		Suffix(`returning
@@ -41,7 +41,7 @@ func (r *Repository) Create(ctx context.Context, tx transaction.Querier, o entit
 	if err := tx.QueryRow(ctx, sql, args...).
 		Scan(
 			&created.ID,
-			&created.CustomerId,
+			&created.CustomerID,
 			&created.CreatedAt,
 			&created.ReturnDeadline,
 			&created.IsActive,

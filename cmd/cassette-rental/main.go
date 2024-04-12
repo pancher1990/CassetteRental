@@ -4,13 +4,15 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	orderscassettesrepo "github.com/pancher1990/cassette-rental/internal/repositories/orders-cassettes"
-	"github.com/pancher1990/cassette-rental/internal/usecases/cassettes"
-	"github.com/pancher1990/cassette-rental/internal/usecases/orders"
 	"log/slog"
 	"net/http"
 	"os"
 	"time"
+
+	orderscassettesrepo "github.com/pancher1990/cassette-rental/internal/repositories/orders-cassettes"
+	"github.com/pancher1990/cassette-rental/internal/usecases/cassettes"
+	"github.com/pancher1990/cassette-rental/internal/usecases/orders"
+	"github.com/pancher1990/cassette-rental/internal/usecases/sessions"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -20,6 +22,7 @@ import (
 	customersrepo "github.com/pancher1990/cassette-rental/internal/repositories/customers"
 	filmsrepo "github.com/pancher1990/cassette-rental/internal/repositories/films"
 	orsersrepo "github.com/pancher1990/cassette-rental/internal/repositories/orders"
+	sessionsrepo "github.com/pancher1990/cassette-rental/internal/repositories/sessions"
 
 	"github.com/pancher1990/cassette-rental/internal/transaction"
 	"github.com/pancher1990/cassette-rental/internal/usecases/customers"
@@ -76,6 +79,7 @@ func main() {
 	orderRepo := orsersrepo.New()
 	cassettesRepo := cassettesrepo.New()
 	ordersCassettesRepo := orderscassettesrepo.New()
+	sessionsRepo := sessionsrepo.New()
 
 	pool, err := newPgxPool(cfg.Database.dsn())
 	if err != nil {
@@ -100,6 +104,11 @@ func main() {
 			Film:     filmRepo,
 			Cassette: cassettesRepo,
 		}, transaction.Tx(pool, logger))),
+		api.WithLogin(sessions.Login(sessions.Repositories{
+			SessionRepository:  sessionsRepo,
+			CustomerRepository: customerRepo,
+		}, transaction.Tx(pool, logger))),
+		api.WithLogout(sessions.Logout(sessionsRepo, transaction.Tx(pool, logger))),
 	)
 	if err != nil {
 		logger.Error("failed to create controller", slog.String("err", err.Error()))

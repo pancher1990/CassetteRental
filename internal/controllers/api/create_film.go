@@ -1,9 +1,7 @@
 package api
 
 import (
-	"encoding/json"
 	"errors"
-	"fmt"
 	"net/http"
 	"strings"
 	"time"
@@ -39,19 +37,13 @@ type film struct {
 
 func (c *Controller) createFilm(w http.ResponseWriter, r *http.Request) {
 	var n newFilm
-	if err := json.NewDecoder(r.Body).Decode(&n); err != nil {
+	if err := c.decodeAndValidateBody(r, &n); err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 
 		return
 	}
 
-	if err := n.Validate(); err != nil {
-		http.Error(w, fmt.Sprintf("invalid film: %s", err.Error()), http.StatusBadRequest)
-
-		return
-	}
-
-	created, err := c.FilmCreater(r.Context(), entities.Film{
+	created, err := c.CreateFilm(r.Context(), entities.Film{
 		Title: n.Title,
 		Price: n.Price,
 	})
@@ -61,16 +53,10 @@ func (c *Controller) createFilm(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	w.Header().Add("Content-Type", "application/json")
-
-	if err := json.NewEncoder(w).Encode(film{
+	c.writeOK(w, film{
 		ID:        created.ID,
 		CreatedAt: created.CreatedAt,
 		Title:     created.Title,
 		Price:     created.Price,
-	}); err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-
-		return
-	}
+	})
 }
