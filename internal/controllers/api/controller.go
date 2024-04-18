@@ -19,6 +19,7 @@ type (
 	CreateCassettes       func(context.Context, string, int) ([]entities.Cassette, error)
 	Login                 func(context.Context, string, string) (string, error)
 	Logout                func(context.Context, string) error
+	Authorize             func(context.Context, string, string) (*entities.Customer, error)
 )
 
 type Controller struct {
@@ -30,6 +31,7 @@ type Controller struct {
 	CreateCassettes
 	Login
 	Logout
+	Authorize
 }
 
 type option interface {
@@ -90,6 +92,12 @@ func WithLogout(logout Logout) option {
 	})
 }
 
+func WithAuthorize(authorize Authorize) option {
+	return optionFunc(func(c *Controller) {
+		c.Authorize = authorize
+	})
+}
+
 func New(opts ...option) (*Controller, error) {
 	var c Controller
 
@@ -129,18 +137,23 @@ func New(opts ...option) (*Controller, error) {
 		return nil, errors.New("logout required")
 	}
 
+	if c.Authorize == nil {
+		return nil, errors.New("authorize required")
+	}
+
 	return &c, nil
 }
 
 func (c *Controller) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	mux := http.NewServeMux()
-	mux.HandleFunc("POST /customers", c.createCustomer)
-	mux.HandleFunc("PUT /customer/balance", c.updateCustomerBalance)
-	mux.HandleFunc("POST /films", c.createFilm)
-	mux.HandleFunc("GET /films", c.getFilms)
+	mux.HandleFunc("POST /customers", AuthMiddleware(c.createCustomer, "customer"))
+	mux.HandleFunc("PUT /customer/balance", AuthMiddleware(c.updateCustomerBalance, "customer"))
+	mux.HandleFunc("POST /films", AuthMiddleware(c.createFilm, "admin"))
+	mux.HandleFunc("GET /films", AuthMiddleware(c.getFilms, "customer"))
 	mux.HandleFunc("POST /cassettes", c.createCassettes)
-	mux.HandleFunc("POST /order", c.createOrder)
+	mux.HandleFunc("POST /order", AuthMiddleware(c.createOrder, "customer"))
 	mux.HandleFunc("POST /login", c.login)
+	mux.HandleFunc("POST /logout", c.logout)
 	mux.ServeHTTP(w, r)
 }
 
@@ -166,7 +179,7 @@ func (c *Controller) writeOK(w http.ResponseWriter, data any) {
 	}
 }
 
-func (c *Controller) getAuthToken(r *http.Request) string {
+func getAuthToken(r *http.Request) string {
 	username, password, ok := r.BasicAuth()
 	if !ok {
 		return ""

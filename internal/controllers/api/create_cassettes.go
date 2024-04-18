@@ -45,6 +45,14 @@ func (c cassetteList) ids() []int {
 }
 
 func (c *Controller) createCassettes(w http.ResponseWriter, r *http.Request) {
+	token := getAuthToken(r)
+	_, err := c.Authorize(r.Context(), token, "admin")
+	if err != nil {
+		http.Error(w, http.StatusText(http.StatusForbidden), http.StatusForbidden)
+
+		return
+	}
+
 	var n newCassettes
 	if err := c.decodeAndValidateBody(r, &n); err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)

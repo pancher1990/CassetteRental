@@ -5,7 +5,7 @@ import (
 )
 
 func (c *Controller) logout(w http.ResponseWriter, r *http.Request) {
-	token := c.getAuthToken(r)
+	token := getAuthToken(r)
 	if token == "" {
 		http.Error(w, http.StatusText(http.StatusUnauthorized), http.StatusUnauthorized)
 

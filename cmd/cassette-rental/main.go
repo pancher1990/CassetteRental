@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/pancher1990/cassette-rental/internal/usecases/authorisation"
 	"log/slog"
 	"net/http"
 	"os"
@@ -50,7 +51,7 @@ func (p PostgresConfig) dsn() string {
 	)
 }
 
-type config struct {
+type Config struct {
 	Database   PostgresConfig `envconfig:"DATABASE"`
 	HTTPServer struct {
 		Host        string        `envconfig:"HOST"`
@@ -62,12 +63,16 @@ type config struct {
 		Login    string `envconfig:"LOGIN" default:"admin"`
 		Password string `envconfig:"PASSWORD" required:"true"`
 	} `envconfig:"ADMIN"`
+	Token struct {
+		Sign       string        `envconfig:"SIGN" required:"true"`
+		ExpireTime time.Duration `envconfig:"EXPIRETIME" default:"600s"`
+	} `envconfig:"TOKEN"`
 }
 
 func main() {
 	logger := newLogger()
 
-	var cfg config
+	var cfg Config
 	if err := envconfig.Process("", &cfg); err != nil {
 		logger.Error("failed to get config", slog.String("err", err.Error()))
 
@@ -107,8 +112,9 @@ func main() {
 		api.WithLogin(sessions.Login(sessions.Repositories{
 			SessionRepository:  sessionsRepo,
 			CustomerRepository: customerRepo,
-		}, transaction.Tx(pool, logger))),
+		}, transaction.Tx(pool, logger), cfg.Token.ExpireTime)),
 		api.WithLogout(sessions.Logout(sessionsRepo, transaction.Tx(pool, logger))),
+		api.WithAuthorize(authorisation.Authorize(customerRepo, transaction.Tx(pool, logger))),
 	)
 	if err != nil {
 		logger.Error("failed to create controller", slog.String("err", err.Error()))

@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"time"
 
 	"github.com/Masterminds/squirrel"
 
@@ -17,11 +18,11 @@ func New() *Repository {
 	return &Repository{}
 }
 
-func (r *Repository) Create(ctx context.Context, tx transaction.Querier, customerID int, token string) error {
+func (r *Repository) Create(ctx context.Context, tx transaction.Querier, customerID int, token string, expiredTime time.Time) error {
 	sql, args, err := squirrel.
 		Insert("session").
-		Columns("customer_id", "token").
-		Values(customerID, token).
+		Columns("customer_id", "token", "expire_at").
+		Values(customerID, token, expiredTime).
 		Suffix("returning token").
 		PlaceholderFormat(squirrel.Dollar).
 		ToSql()

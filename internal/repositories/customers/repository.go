@@ -138,6 +138,7 @@ func (r *Repository) GetByEmailAndPassword(ctx context.Context, tx transaction.Q
 			"c.is_active",
 			"c.balance",
 			"c.email",
+			"c.is_admin",
 		).
 		From("customer c").
 		Where("c.email = ?", email).
@@ -157,6 +158,7 @@ func (r *Repository) GetByEmailAndPassword(ctx context.Context, tx transaction.Q
 		&customer.IsActive,
 		&customer.Balance,
 		&customer.Email,
+		&customer.IsAdmin,
 	); err != nil && errors.Is(err, pgx.ErrNoRows) {
 		return nil, ErrCustomerNotFound
 	} else if err != nil {

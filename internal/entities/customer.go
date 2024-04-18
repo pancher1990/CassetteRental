@@ -10,4 +10,5 @@ type Customer struct {
 	Balance   int
 	Password  string
 	Email     string
+	IsAdmin   bool
 }

@@ -30,8 +30,8 @@ type loginResponse struct {
 }
 
 func (c *Controller) login(w http.ResponseWriter, r *http.Request) {
-	token := c.getAuthToken(r)
-	if token == "" {
+	token := getAuthToken(r)
+	if token != "" {
 		http.Error(w, http.StatusText(http.StatusForbidden), http.StatusForbidden)
 
 		return
